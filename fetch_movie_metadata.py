@@ -62,9 +62,14 @@ def get_imsdb_movies():
         for p in paragraphs:
             movie = dict()
             a = p.find("a")
-            movie["title"] = a.text
+            movie["title"] = a.text  
             movie["page"] = a["href"]
             movie["authors"] = p.find("i").text.replace("Written by ", "").split(",")
+
+            # Fix title
+            if movie["title"][-5:].lower() == ", the":
+                movie["title"] = movie["title"][:-5]
+
             movies.append(movie)
 
         return movies

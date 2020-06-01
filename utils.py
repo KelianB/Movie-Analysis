@@ -19,7 +19,7 @@ def array_to_movie(arr):
     movie["script_page"] = arr[3]
     return movie
 
-""" Get metadata for a given movie from file storage. """
+""" Get metadata for a given movie from file storage, by index. """
 def get_movie_metadata(movie_index):
     # Read metadata CSV file
     with open(config.MOVIES_METADATA_FILE, newline="") as f:
@@ -28,6 +28,19 @@ def get_movie_metadata(movie_index):
         # Find the correct row and return associated metadata
         for i, row in enumerate(reader):
             if i == 1 + movie_index:
+                return array_to_movie(row)
+
+    return None
+
+""" Get metadata for a given movie from file storage, by name. """
+def get_movie_metadata_by_name(movie_name):
+    # Read metadata CSV file
+    with open(config.MOVIES_METADATA_FILE, newline="") as f:
+        reader = csv.reader(f, delimiter=";", quotechar="|")
+
+        # Find the correct row and return associated metadata
+        for i, row in enumerate(reader):
+            if row[0] == movie_name:
                 return array_to_movie(row)
 
     return None

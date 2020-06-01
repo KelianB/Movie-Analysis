@@ -101,18 +101,56 @@ def save_analyzed_movie(analyzed):
 
 
 if __name__ == "__main__":
-    movies = [utils.get_movie_metadata(988)]
+    export_movies = [
+        "Apocalypse Now",
+        "Avatar",
+        "Blade Runner",
+        "Ghostbusters",
+        "Gladiator",
+        "Godfather",
+        "Guardians of the Galaxy Vol 2",
+        "Indiana Jones and the Raiders of the Lost Ark",
+        "Indiana Jones and the Last Crusade",
+        "Indiana Jones and the Temple of Doom",
+        "Jurassic Park",
+        "Lord of the Rings: Fellowship of the Ring",
+        "Lord of the Rings: Return of the King",
+        #"Lord of the Rings: The Two Towers"
+        "Men in Black",
+        "Mission Impossible",
+        "Pirates of the Caribbean",
+        "Pulp Fiction",
+        "Shrek",
+        "Star Wars: A New Hope",
+        "Star Wars: The Empire Strikes Back",
+        "Star Wars: Return of the Jedi",
+        "Star Wars: The Phantom Menace",
+        "Star Wars: Attack of the Clones",
+        "Star Wars: Revenge of the Sith",
+        "Star Wars: The Force Awakens",
+        "Terminator",
+        "Terminator 2: Judgement Day",
+        "Terminator Salvation",
+        "Thor",
+        "Thor Ragnarok",
+        "Titanic",
+        "TRON",
+        "Wall-E",
+        "Wizard of Oz", 
+        "Wolf of Wall Street",
+        "X-Men Origins: Wolverine",
+    ]
 
-    #movies = utils.get_all_movies_metadata()
+    movies = [utils.get_movie_metadata_by_name(name) for name in export_movies]
+    #movies = [utils.get_movie_metadata_by_name(export_movies[-1])]
 
     for i, movie in enumerate(movies):
+        print("Parsing", "'" + movie["title"] + "'", "(" + str(i+1) + "/" + str(len(movies)) + ")")
         parsed_script = script_parser.parse_movie(movie)
-        parsed_script.print()
-        #print(*parsed_script.entries[:100],sep="\n")
-
-        analyzed = AnalyzedMovieScript(parsed_script)
-        save_analyzed_movie(analyzed)
-        print("Finished analyzing movie", str(i+1) + "/" + str(len(movies)))    
+        if parsed_script != None:
+            parsed_script.print()
+            analyzed = AnalyzedMovieScript(parsed_script)
+            save_analyzed_movie(analyzed)
 
 
     
