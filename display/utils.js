@@ -96,11 +96,20 @@ function getPreviousCharacter(movie, i) {
 /**
  * Format text for labelling graphs so it fits a length limit.
  * @param {String} text - Some text
- * @return {String} the formatted text
+ * @return {String} the formatted text.
  */
 function formatLabel(text) {
     let labelLimit = 100;
     if(text.length > labelLimit)
         text = text.substring(0, labelLimit) + "...";
     return text;
+}
+
+/**
+ * Format text for the title of a graph label.
+ * @param {Object} tooltipItem - The tooltip item provided by chart.js
+ * @return {String} the formatted text.
+ */
+function formatLabelTitle(tooltipItem) {
+    return Math.round(parseFloat(tooltipItem[0].value)*1000)/1000;
 }

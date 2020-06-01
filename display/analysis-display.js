@@ -18,12 +18,16 @@ dom.characterBreakdownGraph = $("#character-breakdown-graph");
 
 // Store the sigma graph for character interactions
 let interactionGraph = null;
+let interactionGraphAtlasTimeout = null;
 
 // Listeners that are triggered whenever a section is shown
 let sectionShowListeners = {
     "content-interaction-graph": () => {
-        if(interactionGraph)
-            interactionGraph.refresh();
+        if(interactionGraphAtlasTimeout != null) {
+            clearTimeout(interactionGraphAtlasTimeout);
+            interactionGraphAtlasTimeout = null;
+        }
+        createSocialGraph(movie, getSettings());
     }
 };
 
@@ -45,25 +49,31 @@ fr.onload = () => {
     enableMovieSpecificSections();
 };
 
-function displayMovie(newMovie) {
-    movie = newMovie;
-
+function getSettings() {
     // Read settings
     let minLinesThreshold = $("#min-lines-threshold").val();
     minLinesThresholdGraph = $("#min-lines-threshold-graph").val();
+   
     let settings = {
         minLinesThreshold: minLinesThreshold,
         minLinesThresholdGraph: minLinesThresholdGraph
     };
+    return settings;
+}
 
+function displayMovie(newMovie) {
+    movie = newMovie;
+
+    let settings = getSettings();
+    
     // Sort characters by decreasing line count
     movie.sortedCharacterNames = Object.keys(movie.characters);
     movie.sortedCharacterNames.sort((a,b) => movie.characters[b].line_count - movie.characters[a].line_count);
 
     // Fill character <select>
-    fillCharacterSelect(dom.breakdownSelect, movie, minLinesThreshold);
-    fillCharacterSelect(dom.characterInteractionsSelectA, movie, minLinesThreshold);
-    fillCharacterSelect(dom.characterInteractionsSelectB, movie, minLinesThreshold);
+    fillCharacterSelect(dom.breakdownSelect, movie, settings.minLinesThreshold);
+    fillCharacterSelect(dom.characterInteractionsSelectA, movie, settings.minLinesThreshold);
+    fillCharacterSelect(dom.characterInteractionsSelectB, movie, settings.minLinesThreshold);
     dom.characterInteractionsSelectB.val(movie.sortedCharacterNames[1]);
 
     // Update character table
@@ -73,7 +83,7 @@ function displayMovie(newMovie) {
     let i = 1;
     for(let cname of movie.sortedCharacterNames) {
         let c = movie.characters[cname];
-        if(c.line_count <= minLinesThreshold)
+        if(c.line_count <= settings.minLinesThreshold)
             continue;
 
         characterBreakdownBody.append($("<tr>").append(
@@ -95,14 +105,6 @@ function displayMovie(newMovie) {
         $(".nav-link[data-div='content-interaction-graph']").click();
 
         interactionGraph.refresh();
-        setTimeout(() => {
-            interactionGraph.killForceAtlas2();
-        }, 2500);
-        interactionGraph.startForceAtlas2({
-            scalingRatio: 5000,
-            gravity: 0.01,
-            slowDown: 50,
-        });
     }, 100);
 }
 
@@ -112,31 +114,43 @@ function createSocialGraph(movie, settings) {
         edges: []
     };
 
+    let displayedCharacters = {};
     for(let cname in movie.characters) {
         let c = movie.characters[cname];
-        
-        if(c.line_count <= settings.minLinesThresholdGraph)
-            continue;
+        if(c.line_count > settings.minLinesThresholdGraph)
+            displayedCharacters[cname] = c;
+    }
 
+    let i = 0;
+    let numCharacters = Object.keys(displayedCharacters).length;
+    let sqrtNumCharacters = Math.ceil(Math.sqrt(numCharacters));
+
+    for(let cname in displayedCharacters) {
+        let c = displayedCharacters[cname];
+
+        // Initally position the nodes in a grid
         g.nodes.push({
             id: c.name,
             label: c.name,
-            x: Math.random() * dom.interactionGraphContainer.width(),
-            y: Math.random() * dom.interactionGraphContainer.height(),
+            x: Math.floor(i/(sqrtNumCharacters)) * dom.interactionGraphContainer.width() / sqrtNumCharacters,
+            y: (i%sqrtNumCharacters) * dom.interactionGraphContainer.height() / sqrtNumCharacters,
             size: Math.pow(c.line_count, 0.7),
             color: getSentimentColor(c.avg_cs),
         });
+        i++;
     }
 
     for(let ciName in movie.characters) {
         let ci = movie.characters[ciName];
         if(ci.line_count <= settings.minLinesThresholdGraph)
             continue;
+        
         for(let cjName in movie.characters) {
             let cj = movie.characters[cjName];
             let co = movie.cooccurrences[ci.name][cj.name]; 
             if(ciName == cjName || co.count == 0 || cj.line_count <= settings.minLinesThresholdGraph)
                 continue;
+            
             g.edges.push({
                 id: ci.name + "-" + cj.name,
                 source: ci.name,
@@ -148,6 +162,7 @@ function createSocialGraph(movie, settings) {
     }
 
     // Instantiate sigma:
+    $("#interaction-graph-container").empty();
     interactionGraph = new sigma({graph: g, renderers: [{type: "canvas", container: "interaction-graph-container"}]});
     interactionGraph.settings({
         maxEdgeSize: 10,
@@ -170,6 +185,16 @@ function createSocialGraph(movie, settings) {
         dom.characterInteractionsSelectA.val(edge.source);
         dom.characterInteractionsSelectB.val(edge.target);
         dom.characterInteractionsCompute.click();
+    });
+
+    interactionGraphAtlasTimeout = setTimeout(() => {
+        interactionGraph.killForceAtlas2();
+        interactionGraphAtlasTimeout = null;
+    }, 2500);
+    interactionGraph.startForceAtlas2({
+        scalingRatio: 5000,
+        gravity: 0.01,
+        slowDown: 1,
     });
         
     return interactionGraph;
@@ -240,7 +265,7 @@ function showCharacterBreakdown(name) {
             },
             tooltips: {
                 callbacks: {
-                    title: (tooltipItem, data) => "",
+                    title: (tooltipItem, data) => formatLabelTitle(tooltipItem),
                     label: (tooltipItem, data) => formatLabel(lines[tooltipItem.index])
                 },
             }
@@ -249,7 +274,10 @@ function showCharacterBreakdown(name) {
 }
 
 
-function showCharacterInteractions(nameA, nameB) {
+function updateCharacterInteractions() {
+    let nameA = dom.characterInteractionsSelectA.val();
+    let nameB = dom.characterInteractionsSelectB.val();
+
     let lineIndices = [], lines = [], lineIndex = 0;
     let scoresA = [], scoresB = [];
     let numInteractions = 0;
@@ -314,7 +342,7 @@ function showCharacterInteractions(nameA, nameB) {
             )
     );
 
-    // Display graph
+    // Display social graph
     let canvas = $("<canvas>");
     let chartCtx = canvas[0].getContext("2d");
     dom.characterInteractionsGraph.append(canvas);
@@ -324,8 +352,8 @@ function showCharacterInteractions(nameA, nameB) {
         data: {
             labels: lineIndices,
             datasets: [
-                {data: scoresA, label: "Compound sentiment score (" + nameA + ")", fill: false, borderColor: "rgba(180,60,80,0.3)"},
-                {data: scoresB, label: "Compound sentiment score (" + nameB + ")", fill: false, borderColor: "rgba(60,140,180,0.3)"},
+                {data: scoresA, label: "Compound sentiment score (" + nameA + ")", fill: false, borderColor: "rgba(180,60,80,0.15)"},
+                {data: scoresB, label: "Compound sentiment score (" + nameB + ")", fill: false, borderColor: "rgba(60,140,180,0.15)"},
                 {data: smoothMovingWindow(scoresA), label: "Compound sentiment score (" + nameA + "), smoothed", fill: false, borderColor: "rgb(180,60,80)"},
                 {data: smoothMovingWindow(scoresB), label: "Compound sentiment score (" + nameB + "), smoothed", fill: false, borderColor: "rgb(60,140,180)"}
             ]
@@ -339,7 +367,7 @@ function showCharacterInteractions(nameA, nameB) {
             },
             tooltips: {
                 callbacks: {
-                    title: (tooltipItem, data) => "",
+                    title: (tooltipItem, data) => formatLabelTitle(tooltipItem),
                     label: (tooltipItem, data) => formatLabel(lines[tooltipItem.index])
                 },
             }
@@ -370,7 +398,7 @@ $(document).ready(() => {
 
     // Register listener on character interactions compute <button>
     dom.characterInteractionsCompute.click(() => {
-        showCharacterInteractions(dom.characterInteractionsSelectA.val(), dom.characterInteractionsSelectB.val());
+        updateCharacterInteractions();
     });
 });
 
@@ -407,11 +435,11 @@ function createDirectionSentimentChart(movie, container) {
             responsive: true,
             title: {
                 display: true,
-                text: "Evolution of the sentiment of direction information over the course of the movie"
+                text: "Evolution of the sentiment of directives over the course of the movie"
             },
             tooltips: {
                 callbacks: {
-                    title: (tooltipItem, data) => "",
+                    title: (tooltipItem, data) => formatLabelTitle(tooltipItem),
                     label: (tooltipItem, data) => formatLabel(lines[tooltipItem.index])
                 },
             }
