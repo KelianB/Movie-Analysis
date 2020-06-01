@@ -1,5 +1,5 @@
 # Movie-Analysis
-Parsing, Analyzing and Visualizing Character Interactions in Unstructured Movie Scripts
+Parsing, Analyzing and Visualizing Character Interactions in Unstructured Movie Scripts.
 
 Parses unstructured movie script data from IMSDb (Internet Movie Script Database), performs sentiment analysis and displays the data in an interactive way.
 
