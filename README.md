@@ -1,2 +1,2 @@
 # Movie-Analysis
-Analysis of character interactions and sentiment in movie scripts
+Parsing, Analyzing and Visualizing Character Interactions in Unstructured Movie Scripts
