@@ -14,6 +14,7 @@ TYPE_DIRECTION = "DIRECTION"
 TYPE_LOCATION = "LOCATION"
 
 # Pre-compiled regular expressions
+
 exp_location = re.compile("INT\.|EXT\.|INT |EXT |INT:|EXT:|INTERIOR|EXTERIOR|EXT/INT|INT/EXT|I/E|INSIDE|OUTSIDE| ROOM")
 exp_location_2 = re.compile("^\s*[0-9]+[A-Z]{0,1}\s*[A-Z]+")
 exp_direction = re.compile("FADE |FADES |THE END|- END |- THE END |CREDITS|END CREDITS|CUT TO|CUT BACK TO|(\()*CONTINUED|\(MORE\)|TITLE |\(INTERCUT\)|ANGLE|CLOSE ON |CLOSE UP| SHOT|THEIR POV|\'S POV|WIDER ON|WIDE ON|CLOSER ON|CLOSE ON|RESUME ON|^\s*ON | VIEW|LATER| SHOTS|DISSOLVE|SUPER:|IN THE |UNDER THE |OVER THE |BACK ON |UP ON |FROM |CLOSEUP|CAMERA|IMAGE:")
@@ -142,7 +143,6 @@ class MovieScript:
         name = re.sub(character_cleanup_pattern_1, "", name)
         name = re.sub(character_cleanup_pattern_2, "", name)
         name = name.strip()
-
         return name
 
 
@@ -222,9 +222,15 @@ class MovieScript:
                 num_entries[e["type"]] = 0
             num_entries[e["type"]] += 1
         print("Entry breakdown:", num_entries)
-    
+ 
 
-def parse_script(movie, raw_script):
+""" Computes parsed data for the given movie. """
+def parse_movie(movie):
+    raw_script = script_fetcher.get_raw_script(movie)
+
+    if raw_script == None:
+        return None
+
     movie_script = MovieScript(movie)
     text = raw_script
     text = re.sub("\r", "", text)
@@ -249,18 +255,22 @@ def parse_script(movie, raw_script):
     exp_bold = re.compile(r"(?<=(<b>))(.|\n|\s)*?(?=(</b>))")
     exp_until_bold = re.compile(r"(.|\n|\s)*?(?=<b>|$)")
     
-    # Parse content
+    # Parse content line by line
     while True:
+        # Match all text until the next <b> tag
         match = exp_until_bold.search(text)
         
         if len(match.group()) > 0:
+            # Split on \n\n since that usually indicates a different entry
             raw_entries = match.group().split("\n\n")
             for raw_e in raw_entries:
                 movie_script.add_entry(raw_e, False)
             text = text[match.end():]
         else:
+            # If we have no text left before the next <b> tag, match the contents of the <b></b>
             bold_match = exp_bold.search(text)
             
+            # Stop parsing when we have nothing left to parse
             if bold_match == None and len(match.group()) == 0:
                 break
 
@@ -271,9 +281,3 @@ def parse_script(movie, raw_script):
     movie_script.finalize()    
     
     return movie_script
-    
-""" Computes parsed data for the given movie. """
-def parse_movie(movie):
-    raw_script = script_fetcher.get_raw_script(movie)
-    return None if raw_script == None else parse_script(movie, raw_script)
-
